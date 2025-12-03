@@ -46,40 +46,76 @@ class CNN(nn.Module):
         pass
 
 class CNN_small(nn.Module):
+    """
+    Small CNN for CIFAR-10 warm-up.
 
+    Hidden (parameterized) layers:
+      1) conv1
+      2) conv2
+      3) fc1
+    Output layer:
+      4) fc2
+
+    BatchNorm / MaxPool / Dropout do NOT count toward the hidden-layer limit.
+    """
     def __init__(self, in_dim, out_dim):
         super().__init__()
-
         self.in_dim = in_dim
         self.out_dim = out_dim
 
-        self.fc_layer_neurons = 200
+        # Convolutional part
+        self.conv1 = nn.Conv2d(
+            in_channels=3,
+            out_channels=32,
+            kernel_size=3,
+            stride=1,
+            padding=1
+        )
+        self.bn1 = nn.BatchNorm2d(32)
 
-        self.layer1_filters = 32
+        self.conv2 = nn.Conv2d(
+            in_channels=32,
+            out_channels=64,
+            kernel_size=3,
+            stride=1,
+            padding=1
+        )
+        self.bn2 = nn.BatchNorm2d(64)
 
-        self.layer1_kernel_size = (4,4)
-        self.layer1_stride = 1
-        self.layer1_padding = 0
+        self.pool = nn.MaxPool2d(kernel_size=2, stride=2)
 
-        #NB: these calculations assume:
-        #1) padding is 0;
-        #2) stride is picked such that the last step ends on the last pixel, i.e., padding is not used
-        self.layer1_dim_h = (self.in_dim[1] - self.layer1_kernel_size[0]) / self.layer1_stride + 1
-        self.layer1_dim_w = (self.in_dim[2] - self.layer1_kernel_size[1]) / self.layer1_stride + 1
+        # After two 2x2 pools:
+        # input: 3 x 32 x 32
+        # conv1 -> 32 x 32 x 32
+        # pool  -> 32 x 16 x 16
+        # conv2 -> 64 x 16 x 16
+        # pool  -> 64 x 8 x 8
+        flattened_dim = 64 * 8 * 8
 
-        self.conv1 = nn.Conv2d(3, self.layer1_filters, self.layer1_kernel_size, stride=self.layer1_stride, padding=self.layer1_padding)
-
-        self.fc_inputs = int(self.layer1_filters * self.layer1_dim_h * self.layer1_dim_w)
-
-        self.lin1 = nn.Linear(self.fc_inputs, self.fc_layer_neurons)
-
-        self.lin2 = nn.Linear(self.fc_layer_neurons, self.out_dim)
+        # Fully connected part
+        self.fc1 = nn.Linear(flattened_dim, 256)
+        self.dropout = nn.Dropout(p=0.5)
+        self.fc2 = nn.Linear(256, out_dim)
 
     def forward(self, x):
-        x = F.relu(self.conv1(x))
+        # Conv block 1
+        x = self.conv1(x)
+        x = self.bn1(x)
+        x = F.relu(x)
+        x = self.pool(x)
 
-        # flatten convolutional layer into vector
+        # Conv block 2
+        x = self.conv2(x)
+        x = self.bn2(x)
+        x = F.relu(x)
+        x = self.pool(x)
+
+        # Flatten
         x = x.view(x.size(0), -1)
-        x = F.relu(self.lin1(x))
-        x = self.lin2(x)
+
+        # Fully connected head
+        x = F.relu(self.fc1(x))
+        x = self.dropout(x)
+        x = self.fc2(x)  # raw logits
+
         return x
