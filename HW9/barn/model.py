@@ -42,8 +42,67 @@ class CNN(nn.Module):
         self.in_dim = in_dim
         self.out_dim = out_dim
 
+        self.conv1 = nn.Conv2d(3, 32, kernel_size=3, stride=1, padding=1)
+        self.bn1   = nn.BatchNorm2d(32)
+
+        self.conv2 = nn.Conv2d(32, 64, kernel_size=3, stride=1, padding=1)
+        self.bn2   = nn.BatchNorm2d(64)
+
+        self.conv3 = nn.Conv2d(64, 128, kernel_size=3, stride=1, padding=1)
+        self.bn3   = nn.BatchNorm2d(128)
+
+        self.conv4 = nn.Conv2d(128, 256, kernel_size=3, stride=1, padding=1)
+        self.bn4   = nn.BatchNorm2d(256)
+
+        # 2×2 max pooling after each block
+        self.pool = nn.MaxPool2d(kernel_size=2, stride=2)
+
+        self.global_pool = nn.AdaptiveMaxPool2d((4, 4))
+
+        # ---- Fully connected head ----
+        flattened_dim = 256 * 4 * 4  # channels * height * width = 4096
+
+        self.fc1 = nn.Linear(flattened_dim, 256)
+        self.dropout = nn.Dropout(p=0.5)
+        self.fc2 = nn.Linear(256, out_dim)  # out_dim = 11 for buildings
+
     def forward(self, x):
-        pass
+        # Block 1
+        x = self.conv1(x)
+        x = self.bn1(x)
+        x = F.relu(x)
+        x = self.pool(x)
+
+        # Block 2
+        x = self.conv2(x)
+        x = self.bn2(x)
+        x = F.relu(x)
+        x = self.pool(x)
+
+        # Block 3
+        x = self.conv3(x)
+        x = self.bn3(x)
+        x = F.relu(x)
+        x = self.pool(x)
+
+        # Block 4
+        x = self.conv4(x)
+        x = self.bn4(x)
+        x = F.relu(x)
+        x = self.pool(x)
+
+        # Fixed-size feature map
+        x = self.global_pool(x)          # (B, 256, 4, 4)
+
+        # Flatten
+        x = x.view(x.size(0), -1)        # (B, 4096)
+
+        # FC head
+        x = F.relu(self.fc1(x))
+        x = self.dropout(x)
+        x = self.fc2(x)                  # logits, shape (B, out_dim)
+
+        return x
 
 class CNN_small(nn.Module):
     """
