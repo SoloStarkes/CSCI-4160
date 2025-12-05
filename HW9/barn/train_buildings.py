@@ -1,3 +1,5 @@
+# Authors: Arnav Jain, Solomon Starkes, and Sidy Thiam
+
 import torch
 import torch.optim as optim
 import torch.nn.functional as F

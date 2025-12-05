@@ -1,3 +1,5 @@
+# Authors: Arnav Jain, Solomon Starkes, and Sidy Thiam
+
 import sys
 import os
 

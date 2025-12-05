@@ -1,3 +1,5 @@
+# Authors: Arnav Jain, Solomon Starkes, and Sidy Thiam
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
