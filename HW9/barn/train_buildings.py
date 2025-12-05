@@ -4,7 +4,6 @@ import torch.nn.functional as F
 from torch.utils.data import Subset
 import torchvision
 from model import CNN
-import matplotlib.pyplot as plt
 
 from dataset import BuildingDataset
 
@@ -21,7 +20,7 @@ def split_train_val(org_train_set, valid_ratio=0.1):
 
     num_train = len(org_train_set)
 
-    split = int(np.floor(valid_ratio * num_train))
+    split = int(np.floor(valid_ratio * num_train))        
 
     indices = list(range(num_train))
 
@@ -40,7 +39,7 @@ def split_train_val(org_train_set, valid_ratio=0.1):
 def test(net, loader, device):
     # prepare model for testing (only important for dropout, batch norm, etc.)
     net.eval()
-
+    
     test_loss = 0
     correct = 0
     total = 0
@@ -49,18 +48,19 @@ def test(net, loader, device):
         for data, target in loader:
 
             data, target = data.to(device), target.to(device)
-
+            
             output = net(data)
-            test_loss += F.nll_loss(output, target, size_average=False).item()
+            log_probs = F.log_softmax(output, dim=1)
+            test_loss += F.nll_loss(log_probs, target, size_average=False).item()
             pred = output.data.max(1, keepdim=True)[1]
             correct += (pred.eq(target.data.view_as(pred)).sum().item())
-
+            
             total = total + 1
 
     print('Test set: Avg. loss: {:.4f}, Accuracy: {}/{} ({:.2f}%)'.format(
         test_loss, correct, len(loader.dataset),
         (100. * correct / len(loader.dataset))), flush=True)
-
+    
     return 100.0 * correct / len(loader.dataset)
 
 def train(net, loader, optimizer, epoch, device, log_interval=1):
@@ -71,7 +71,7 @@ def train(net, loader, optimizer, epoch, device, log_interval=1):
     for batch_idx, (data, target) in enumerate(loader):
 
         data, target = data.to(device), target.to(device)
-
+        
         # clear up gradients for backprop
         optimizer.zero_grad()
         output = F.log_softmax(net(data), dim=1)
@@ -90,7 +90,7 @@ def train(net, loader, optimizer, epoch, device, log_interval=1):
             print('\nTrain Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                 epoch, batch_idx * len(data), len(loader.dataset), 100. * batch_idx / len(loader), loss.item()), flush=True)
 
-    print('\tAccuracy: {:.2f}%'.format(100.0 * correct / len(loader.dataset)), flush=True)
+    print('\tAccuracy: {:.2f}%'.format(100.0 * correct / len(loader.dataset)), flush=True)  
 
 
 if __name__ == '__main__':
@@ -104,7 +104,7 @@ if __name__ == '__main__':
     normalize = torchvision.transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.225, 0.225, 0.225])
     resize = torchvision.transforms.Resize(size = (new_h, new_w))
     convert = torchvision.transforms.ConvertImageDtype(torch.float)
-
+    
     train_transforms = torchvision.transforms.Compose([resize, convert, normalize])
     test_transforms = torchvision.transforms.Compose([resize, convert, normalize])
 
@@ -126,7 +126,7 @@ if __name__ == '__main__':
     # set training hyperparameters
     train_batch_size = 100
     test_batch_size = 100
-    n_epochs = 10
+    n_epochs = 30
     learning_rate = 1e-3
     seed = 100
     input_dim = (3, new_h, new_w)
@@ -145,9 +145,9 @@ if __name__ == '__main__':
     model_path = 'models/'
     if not os.path.exists(model_path):
         os.mkdir(model_path)
-
+        
     PATH = model_path + 'cnn_buildings.pth'
-
+    
     if len(sys.argv) > 1 and sys.argv[1] == 'load':
         network.load_state_dict(torch.load(PATH))
 
@@ -156,8 +156,19 @@ if __name__ == '__main__':
     test(network, test_loader, device)
 
     # training loop
+    best_acc = 0.0
+    best_epoch = 0
+    best_state_dict = None
     for epoch in range(1, n_epochs + 1):
         train(network, train_loader, optimizer, epoch, device)
-        test(network, test_loader, device)
+        acc = test(network, test_loader, device)
+        if acc > best_acc:
+                best_acc = acc
+                best_epoch = epoch
+                best_state_dict = network.state_dict()		
 
-    torch.save(network.state_dict(), PATH)
+    if best_state_dict is not None:
+        torch.save(best_state_dict, PATH)
+        print(f"Saved best model at epoch {best_epoch} with accuracy = {best_acc:.2f}%")
+    else:
+        torch.save(network.state_dict(), PATH)

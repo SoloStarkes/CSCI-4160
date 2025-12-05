@@ -3,14 +3,14 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 class FC(nn.Module):
-
+    
     def __init__(self, in_dim, out_dim, num_hidden_layers, layer_size):
         super().__init__()
 
         self.num_layers = num_hidden_layers * 2 + 3 # *2 accounts for ReLU layers, +3 is input layer, input relu layer, output layer
 
         self.in_dim = in_dim
-        self.out_dim = out_dim
+        self.out_dim = out_dim        
 
         self.layer_size = layer_size
 
@@ -21,10 +21,10 @@ class FC(nn.Module):
 
         for i in range(1,self.num_hidden_layers):
             self.layer_list.append(nn.Linear(self.layer_size, self.layer_size))
-
+            
 
         self.layer_list.append(nn.Linear(self.layer_size, self.out_dim))
-
+        
     def forward(self, x):
 
         x = x.view(-1, self.in_dim)
@@ -35,7 +35,6 @@ class FC(nn.Module):
         return self.layer_list[self.num_hidden_layers](x)
 
 class CNN(nn.Module):
-
     def __init__(self, in_dim, out_dim):
         super().__init__()
 
@@ -103,21 +102,10 @@ class CNN(nn.Module):
         x = self.fc2(x)                  # logits, shape (B, out_dim)
 
         return x
-
+   
 class CNN_small(nn.Module):
-    """
-    Small CNN for CIFAR-10 warm-up.
-
-    Hidden (parameterized) layers:
-      1) conv1
-      2) conv2
-      3) fc1
-    Output layer:
-      4) fc2
-
-    BatchNorm / MaxPool / Dropout do NOT count toward the hidden-layer limit.
-    """
-    def __init__(self, in_dim, out_dim):
+    
+   def __init__(self, in_dim, out_dim):
         super().__init__()
         self.in_dim = in_dim
         self.out_dim = out_dim
@@ -156,7 +144,7 @@ class CNN_small(nn.Module):
         self.dropout = nn.Dropout(p=0.5)
         self.fc2 = nn.Linear(256, out_dim)
 
-    def forward(self, x):
+   def forward(self, x):
         # Conv block 1
         x = self.conv1(x)
         x = self.bn1(x)
@@ -178,3 +166,4 @@ class CNN_small(nn.Module):
         x = self.fc2(x)  # raw logits
 
         return x
+ 
